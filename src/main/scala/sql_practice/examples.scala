@@ -1,6 +1,6 @@
 package sql_practice
 
-import org.apache.spark.sql.functions.{explode, _}
+import org.apache.spark.sql.functions.{explode, min, _}
 import spark_helpers.SessionBuilder
 
 object examples {
@@ -40,6 +40,8 @@ object examples {
     val spark = SessionBuilder.buildSession()
     import spark.implicits._
 
+    println("exercice 3")
+
     val demoFrDF = spark.read.json("data/input/demographie_par_commune.json");
 
     val depFrDF = spark.read.csv("data/input/departements.txt")
@@ -69,6 +71,7 @@ object examples {
     val spark = SessionBuilder.buildSession()
     import spark.implicits._
 
+    println("Execerice 3")
 
     val s07 = spark.read.format("csv")
       .option("header", false)
@@ -82,24 +85,22 @@ object examples {
       .load("data/input/sample_08")
       .toDF("id", "description08", "number08", "salary08");
 
+    println("salary > 100k")
 
-    println(s07.show()
-    )
+    s07.select("salary07", "description07").where(col("salary07")>1000000).orderBy($"salary07".desc).show()
 
-    println(s07.select("salary07", "description07").where(col("salary07")>1000000).orderBy($"salary07".desc).show()
-    )
+    println("growth")
 
-    println(
       s07.join(s08, s07("id") === s08("id"), "inner")
         .select(col("description07"), (col("salary08") - col("salary07")).as("Growth"))
         .where((col("salary08") - col("salary07"))>0).show()
-    )
 
-    println(
+    println("job loss")
+
       s07.join(s08, s07("id") === s08("id"), "inner")
         .select(col("description07"), (col("salary08") - col("salary07")).as("Growth"), (col("number08") - col("number07")).as("Jobloss"))
         .where((col("salary08") - col("salary07")) > 0 and (col("number08") - col("number07"))<0).show()
-    )
+
   }
 
   def exec4(): Unit = {
@@ -110,14 +111,45 @@ object examples {
       .option("multiline", true)
       .option("mode", "PERMISSIVE")
       .json("data/input/tours.json")
-    toursDF.show
 
-    println(toursDF
+    println("1-unique difficulties")
+    toursDF
+      .select($"tourDifficulty").groupBy("tourDifficulty").count().show()
+
+    println("2-min mav av pricetou")
+
+    toursDF
+      .select($"tourPrice")
+      .agg(min("tourPrice"), max("tourPrice"), avg("tourPrice"))
+      .show()
+
+    println("3- min mav av pricetour level")
+
+    toursDF
+      .select( $"tourPrice", $"tourDifficulty")
+      .groupBy($"tourDifficulty")
+      .agg(min("tourPrice"), max("tourPrice"), mean("tourPrice"), avg("tourPrice"))
+      .show()
+
+    println("4- min mav av pricetour et len")
+
+    toursDF
+      .select($"tourPrice", $"tourDifficulty", $"tourLength")
+      .groupBy($"tourDifficulty")
+      .agg(min("tourPrice"), max("tourPrice"), avg("tourPrice"),
+        min("tourLength"), max("tourLength"), avg("tourLength"))
+      .show()
+
+    println("5- top ten tourtag")
+
+    toursDF
       .select(explode($"tourTags"))
       .groupBy("col")
       .count()
-      .count()
-    )
+      .orderBy($"count".desc)
+      .show(10)
+
+    println("6- top ten relfationship tourtag and difficullties")
 
     toursDF
       .select(explode($"tourTags"), $"tourDifficulty")
@@ -126,8 +158,17 @@ object examples {
       .orderBy($"count".desc)
       .show(10)
 
+    println("7- top ten min max av tour tag and dif sorted by avg")
 
+    toursDF
+      .select(explode($"tourTags"), $"tourPrice", $"tourDifficulty")
+      .groupBy($"col", $"tourDifficulty")
+      .agg(min("tourPrice"), max("tourPrice"), avg("tourPrice").as("avg"))
+      .orderBy($"avg".desc)
+      .show(10)
 
   }
+
+
 
 }
